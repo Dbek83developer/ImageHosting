@@ -1,0 +1,14 @@
+services:
+  app:
+    build:
+      ports:
+        - "8000:8000"
+      volumes:
+        - ./static:/app/static
+        - ./images:/app/images
+      networks:
+        - app-network
+  nginx:
+    image: nginx
+    ports:
+      - "80"
