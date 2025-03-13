@@ -2,68 +2,66 @@ import json
 import os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from uuid import uuid4
+
 from loguru import logger
 
-SERVER_ADDRESS = ('localhost', 8000)
+SERVER_ADDRESS = ('0.0.0.0', 8000)
 STATIC_PATH = 'static/'
 IMAGES_PATH = 'images/'
 ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif']
 MAX_FILE_SIZE = 5 * 1024 * 1024
-LOG_PATH = '/logs'
+LOG_PATH = 'logs/'
 LOG_FILE = 'app.log'
 
-logger.add(LOG_PATH+LOG_FILE, format='')
+logger.add(LOG_PATH + LOG_FILE,
+           format='[{time:YYYY-MM-DD HH:mm:ss}] {level}: {message}',
+           level='INFO')
 
 
 class ImageHostingHttpRequestHandler(BaseHTTPRequestHandler):
     server_version = 'Image Hosting Server v0.1'
 
-    # ВСЕ get-запросы обрабатываются здесь
-    def do_GET(self):
-        if self.path == '/':
-            self.send_html('index.html')
-        if self.path.startswith('/images/') and any(self.path.endswith(ext) for ext in ALLOWED_EXTENSIONS):
-            self.send_response(200)
-            self.send_header('Content-type', 'image/jpeg')
-            self.end_headers()
-            filename = self.path.split('/')[-1]
-            with open(IMAGES_PATH + filename, 'rb') as file:
-                self.wfile.write(file.read())
-        elif self.path == '/api/images':
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            response = {
-                'images': next(os.walk(IMAGES_PATH))[2]
-            }
-            self.wfile.write(json.dumps(response).encode('utf-8'))
+    def __init__(self, request, client_address, server):
+        self.get_routes = {
+            '/api/images': self.get_images,
+            '/upload/': self.get_upload
+        }
+        self.post_routes = {
+            '/upload/': self.post_upload
+        }
+        self.default_response = lambda: self.send_html('404.html', 404)
+        super().__init__(request, client_address, server)
 
-        elif self.path == '/images':
-            self.send_html('images.html')
-        elif self.path == '/upload':
-            self.send_html('upload.html')
-        else:
-            self.send_html('404.html', 404)
+    def get_images(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        response = {
+            'images': next(os.walk(IMAGES_PATH))[2]
+        }
+        self.wfile.write(json.dumps(response).encode('utf-8'))
 
-    def do_POST(self):
-        if self.path == '/upload':
-            length = int(self.headers.get('Content-Length'))
-            if length > MAX_FILE_SIZE:
-                self.send_html('upload_failed.html', 413)
-                return
+    def get_upload(self):
+        self.send_html('upload.html')
 
-            data = self.rfile.read(length)
-            _, ext = os.path.splitext(self.headers.get('Filename'))
-            image_id = uuid4()
-            if ext not in ALLOWED_EXTENSIONS:
-                self.send_html('upload_failed.html', 400)
-                return
+    def post_upload(self):
+        length = int(self.headers.get('Content-Length'))
+        if length > MAX_FILE_SIZE:
+            logger.warning('File too large')
+            self.send_html('upload_failed.html', 413)
+            return
 
-            with open(IMAGES_PATH + f'{image_id}{ext}', 'wb') as file:
-                file.write(data)
-            self.send_html('upload_success.html')
-        else:
-            self.send_html('404.html', 404)
+        data = self.rfile.read(length)
+        _, ext = os.path.splitext(self.headers.get('Filename'))
+        image_id = uuid4()
+        if ext not in ALLOWED_EXTENSIONS:
+            logger.warning('File type not allowed')
+            self.send_html('upload_failed.html', 400)
+            return
+
+        with open(IMAGES_PATH + f'{image_id}{ext}', 'wb') as file:
+            file.write(data)
+        self.send_html('upload_success.html')
 
     def send_html(self, file_path, code=200):
         self.send_response(code)
@@ -72,17 +70,25 @@ class ImageHostingHttpRequestHandler(BaseHTTPRequestHandler):
         with open(STATIC_PATH + file_path, 'rb') as file:
             self.wfile.write(file.read())
 
+    def do_GET(self):
+        logger.info(f'GET {self.path}')
+        self.get_routes.get(self.path, self.default_response)()
+
+    def do_POST(self):
+        logger.info(f'POST {self.path}')
+        self.post_routes.get(self.path, self.default_response)()
+
 
 def run(server_class=HTTPServer, handler_class=ImageHostingHttpRequestHandler):
     httpd = server_class(SERVER_ADDRESS, handler_class)
-    print(f'Serving on http://{SERVER_ADDRESS[0]}:{SERVER_ADDRESS[1]}')
+    logger.info(f'Serving on http://{SERVER_ADDRESS[0]}:{SERVER_ADDRESS[1]}')
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print('Keyboard interrupt received, exiting.')
+        logger.warning('Keyboard interrupt received, exiting.')
         httpd.server_close()
     finally:
-        print('Server stopped.')
+        logger.info('Server stopped.')
 
 
 if __name__ == '__main__':
