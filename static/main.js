@@ -4,7 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
     'hero-images/hero1.png',
     'hero-images/hero2.png',
     'hero-images/hero3.png',
-    'hero-images/hero4.png'
+    'hero-images/hero4.png',
+    'hero-images/hero5.png'
   ];
 
   const randomIndex = Math.floor(Math.random() * heroImages.length);
