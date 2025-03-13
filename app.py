@@ -23,8 +23,7 @@ class ImageHostingHttpRequestHandler(BaseHTTPRequestHandler):
 
     def __init__(self, request, client_address, server):
         self.get_routes = {
-            '/api/images': self.get_images,
-            '/upload/': self.get_upload
+            '/api/images': self.get_images
         }
         self.post_routes = {
             '/upload/': self.post_upload
@@ -40,9 +39,6 @@ class ImageHostingHttpRequestHandler(BaseHTTPRequestHandler):
             'images': next(os.walk(IMAGES_PATH))[2]
         }
         self.wfile.write(json.dumps(response).encode('utf-8'))
-
-    def get_upload(self):
-        self.send_html('upload.html')
 
     def post_upload(self):
         length = int(self.headers.get('Content-Length'))
@@ -61,11 +57,14 @@ class ImageHostingHttpRequestHandler(BaseHTTPRequestHandler):
 
         with open(IMAGES_PATH + f'{image_id}{ext}', 'wb') as file:
             file.write(data)
-        self.send_html('upload_success.html')
+        self.send_html('upload_success.html', headers={'Location': f'http://localhost/{IMAGES_PATH}/{image_id}{ext}'})
 
-    def send_html(self, file_path, code=200):
+    def send_html(self, file_path, code=200, headers=None):
         self.send_response(code)
         self.send_header('Content-type', 'text/html')
+        if headers:
+            for header, value in headers.items():
+                self.send_header(header, value)
         self.end_headers()
         with open(STATIC_PATH + file_path, 'rb') as file:
             self.wfile.write(file.read())
