@@ -21,11 +21,8 @@ dropArea.addEventListener('drop', (e) => {
   e.preventDefault();
   dropArea.classList.remove('dragover');
 
-  console.log("Файл перетащен в область!");  // Проверка
-
   const files = e.dataTransfer.files;
   if (files.length) {
-    console.log("Файл получен:", files[0].name);  // Проверка
     handleFiles(files);
   }
 });
@@ -38,10 +35,7 @@ function handleFiles(files) {
   const file = files[0];
   if (!file) return;
 
-  console.log("Обрабатываем файл:", file.name); // Лог
-
   if (!['image/jpeg','image/png','image/gif', 'image/jpg'].includes(file.type)) {
-    console.error("Неверный формат файла");
     dropArea.classList.add('error');
     dropArea.classList.remove('success');
     alert("Invalid file type. Only JPG, PNG, and GIF are allowed.");
@@ -58,11 +52,9 @@ function handleFiles(files) {
 
   dropArea.classList.remove('error');
 
-  // ✅ Добавляем отправку на сервер
+  //  Добавляем отправку на сервер
   const formData = new FormData();
   formData.append("file", file);
-
-  console.log("Отправляем файл на сервер...");
 
   fetch('/api/upload/', {
     method: 'POST',
@@ -73,7 +65,6 @@ function handleFiles(files) {
   })
   .then(response => {
     if (!response.ok) throw new Error('Ошибка загрузки');
-    console.log("Файл загружен успешно! Ответ сервера:", response);
     return response;
   })
   .then(response => {
@@ -89,7 +80,7 @@ function handleFiles(files) {
   });
 }
 
-// ✅ Копирование ссылки
+// Копирование ссылки
 copyButton.addEventListener('click', () => {
   navigator.clipboard.writeText(uploadUrlInput.value)
     .then(() => {

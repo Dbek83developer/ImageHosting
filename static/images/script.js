@@ -6,10 +6,8 @@ fetch('/api/images')
     .catch(error => console.error('Ошибка загрузки изображений:', error));
 
 function setImages(images) {
-    tbody.innerHTML = ''; // Очищаем старые данные
+    tbody.innerHTML = '';
     images.forEach(image => {
-        console.log('Добавляем изображение:', image);
-
         const tr = document.createElement('tr');
         const tdPreview = document.createElement('td');
         const tdUrl = document.createElement('td');
@@ -32,20 +30,16 @@ function setImages(images) {
     });
 }
 
-// ✅ Функция удаления изображения с сервера
+// Функция удаления изображения с сервера
 function deleteImage(imageName, row) {
-    console.log('Отправка DELETE запроса для:', imageName);
-
     fetch('/delete/', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filename: imageName })
     })
     .then(response => {
-        console.log('Ответ сервера:', response.status);
         if (response.ok) {
             row.remove();
-            console.log(`Изображение ${imageName} удалено`);
         } else {
             alert('Ошибка удаления изображения');
         }
