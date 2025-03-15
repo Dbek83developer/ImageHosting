@@ -28,6 +28,9 @@ class ImageHostingHttpRequestHandler(BaseHTTPRequestHandler):
         self.post_routes = {
             '/upload/': self.post_upload
         }
+        self.delete_routes = {
+            '/delete/': self.delete_image
+        }
         self.default_response = lambda: self.send_html('404.html', 404)
         super().__init__(request, client_address, server)
 
@@ -59,6 +62,29 @@ class ImageHostingHttpRequestHandler(BaseHTTPRequestHandler):
             file.write(data)
         self.send_html('upload_success.html', headers={'Location': f'http://localhost/{IMAGES_PATH}/{image_id}{ext}'})
 
+    def delete_image(self):
+        length = int(self.headers.get('Content-Length'))
+        data = json.loads(self.rfile.read(length))
+        print("Received delete request:", data)  # posle otladki udalit
+        filename = data.get('filename')
+        file_path = os.path.join(IMAGES_PATH, filename)
+
+        if not os.path.exists(file_path):
+            logger.warning(f'File {filename} not found')
+            self.send_response(404)
+            self.end_headers()
+            return
+
+        try:
+            os.remove(file_path)
+            logger.info(f'File {filename} deleted successfully')
+            self.send_response(200)
+        except Exception as e:
+            logger.error(f'Error deleting file {filename}: {e}')
+            self.send_response(500)
+
+        self.end_headers()
+
     def send_html(self, file_path, code=200, headers=None):
         self.send_response(code)
         self.send_header('Content-type', 'text/html')
@@ -76,6 +102,49 @@ class ImageHostingHttpRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         logger.info(f'POST {self.path}')
         self.post_routes.get(self.path, self.default_response)()
+
+    def do_DELETE(self):
+        logger.info(f'Получен DELETE-запрос: {self.path}')
+        if self.path == "/delete/":
+            length = int(self.headers.get('Content-Length', 0))
+            if length == 0:
+                self.send_response(400)
+                self.end_headers()
+                return
+            try:
+                data = json.loads(self.rfile.read(length).decode('utf-8'))
+                filename = data.get('filename')
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.end_headers()
+                return
+
+            if not filename:
+                logger.warning('Запрос без имени файла')
+                self.send_response(400)
+                self.end_headers()
+                return
+
+            file_path = os.path.join(IMAGES_PATH, filename)
+
+            if not os.path.exists(file_path):
+                logger.warning(f'Файл {filename} не найден')
+                self.send_response(404)
+                self.end_headers()
+                return
+
+            try:
+                os.remove(file_path)
+                logger.info(f'Файл {filename} успешно удалён')
+                self.send_response(200)
+            except Exception as e:
+                logger.error(f'Ошибка при удалении файла {filename}: {e}')
+                self.send_response(500)
+
+            self.end_headers()
+        else:
+            self.send_response(404)
+            self.end_headers()
 
 
 def run(server_class=HTTPServer, handler_class=ImageHostingHttpRequestHandler):
