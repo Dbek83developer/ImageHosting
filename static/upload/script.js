@@ -20,8 +20,12 @@ dropArea.addEventListener('dragleave', () => {
 dropArea.addEventListener('drop', (e) => {
   e.preventDefault();
   dropArea.classList.remove('dragover');
+
+  console.log("Файл перетащен в область!");  // Проверка
+
   const files = e.dataTransfer.files;
   if (files.length) {
+    console.log("Файл получен:", files[0].name);  // Проверка
     handleFiles(files);
   }
 });
@@ -34,26 +38,58 @@ function handleFiles(files) {
   const file = files[0];
   if (!file) return;
 
+  console.log("Обрабатываем файл:", file.name); // Лог
+
   if (!['image/jpeg','image/png','image/gif', 'image/jpg'].includes(file.type)) {
-    // Ошибка
+    console.error("Неверный формат файла");
     dropArea.classList.add('error');
     dropArea.classList.remove('success');
+    alert("Invalid file type. Only JPG, PNG, and GIF are allowed.");
     return;
   }
 
   if (file.size > 5 * 1024 * 1024) {
+    console.error("Файл слишком большой");
     dropArea.classList.add('error');
     dropArea.classList.remove('success');
+    alert("File is too large. Max size is 5MB.");
     return;
   }
 
   dropArea.classList.remove('error');
 
+  // ✅ Добавляем отправку на сервер
+  const formData = new FormData();
+  formData.append("file", file);
 
+  console.log("Отправляем файл на сервер...");
+
+  fetch('/api/upload/', {
+    method: 'POST',
+    headers: {
+      'Filename': file.name
+    },
+    body: file
+  })
+  .then(response => {
+    if (!response.ok) throw new Error('Ошибка загрузки');
+    console.log("Файл загружен успешно! Ответ сервера:", response);
+    return response;
+  })
+  .then(response => {
+    uploadUrlInput.value = response.headers.get('Location');
+    copyButton.disabled = false;
+    dropArea.classList.add('success');
+    alert("Файл загружен!");
+  })
+  .catch(error => {
+    console.error('Ошибка загрузки:', error);
+    dropArea.classList.add('error');
+    alert("Ошибка загрузки файла.");
+  });
 }
 
-
-
+// ✅ Копирование ссылки
 copyButton.addEventListener('click', () => {
   navigator.clipboard.writeText(uploadUrlInput.value)
     .then(() => {
@@ -69,30 +105,6 @@ copyButton.addEventListener('click', () => {
     });
 });
 
-fileInput.addEventListener('change', () => {
-  const file = fileInput.files[0];
-  if (!file) return alert('Выберите файл для загрузки.');
-
-  fetch('/api/upload/', {
-    method: 'POST',
-    headers: {
-      'Filename': file.name
-    },
-    body: file
-  })
-  .then(response => {
-    document.getElementById('uploadUrl').value = response.headers.get('Location');
-
-    copyButton.disabled = false;
-    dropArea.classList.add('success');
-  })
-  .catch(error => {
-    console.error('Ошибка загрузки:', error);
-    dropArea.classList.add('error');
-  });
-});
-
-document.getElementById('btnGoToImages').addEventListener('click', (event) => {
+document.getElementById('btnGoToImages').addEventListener('click', () => {
     window.location.href = '/images/';
 });
-

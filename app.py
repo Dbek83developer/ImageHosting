@@ -65,7 +65,6 @@ class ImageHostingHttpRequestHandler(BaseHTTPRequestHandler):
     def delete_image(self):
         length = int(self.headers.get('Content-Length'))
         data = json.loads(self.rfile.read(length))
-        print("Received delete request:", data)  # posle otladki udalit
         filename = data.get('filename')
         file_path = os.path.join(IMAGES_PATH, filename)
 
